@@ -1,6 +1,8 @@
 package org.alexv.stockservice.model;
 
 import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.Value;
 
 @AllArgsConstructor
 public enum Currency {
@@ -14,5 +16,9 @@ public enum Currency {
     CNY("CNY"),
     TRY("TRY");
 
-    private String currency;
+    private final String currency;
+
+    public String currency() {
+        return currency;
+    }
 }

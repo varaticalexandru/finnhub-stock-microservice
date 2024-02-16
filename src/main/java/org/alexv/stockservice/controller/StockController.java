@@ -13,33 +13,34 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
+@RequestMapping("/stocks")
 public class StockController {
 
     private final StockService stockService;
 
-    @GetMapping("/stocks/{ticker}")
+    @GetMapping("/{ticker}")
     public ResponseEntity<Stock> getStock(@PathVariable String ticker) {
 
         Stock stock = stockService.getStockByTicker(ticker);
 
-        return new ResponseEntity<Stock>(stock, HttpStatus.OK);
+        return new ResponseEntity<>(stock, HttpStatus.OK);
     }
 
-    @PostMapping("/stocks/byTickers")
+    @PostMapping("/byTickers")
     public ResponseEntity<StocksDto> getStocksByTickers(@RequestBody TickersDto tickers) {
         var stocks = stockService.getStocksByTickers(tickers);
 
         return new ResponseEntity<>(stocks, HttpStatus.OK);
     }
 
-    @GetMapping("/stocks/price/{ticker}")
+    @GetMapping("/price/{ticker}")
     public ResponseEntity<StockPriceDto> getStockPrice(@PathVariable String ticker) {
         var stockPrice = stockService.getStockPrice(ticker);
 
         return new ResponseEntity<>(stockPrice, HttpStatus.OK);
     }
 
-    @PostMapping("/stocks/price/byTickers")
+    @PostMapping("/price/byTickers")
     public ResponseEntity<StocksPricesDto> getStocksPrices(@RequestBody TickersDto tickers) {
         var stocksPrices = stockService.getStocksPrices(tickers);
 
