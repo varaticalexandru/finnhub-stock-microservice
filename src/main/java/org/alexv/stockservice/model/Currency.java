@@ -1,8 +1,6 @@
 package org.alexv.stockservice.model;
 
 import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.Value;
 
 @AllArgsConstructor
 public enum Currency {
