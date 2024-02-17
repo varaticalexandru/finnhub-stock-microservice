@@ -83,7 +83,7 @@
                     <artifactId>finnhubclient</artifactId>
                     <version>1.0</version>
                     <packaging>jar</packaging>
-                    <file>${basedir}/dependencies/FinnhubClient-1.0-SNAPSHOT.jar</file>
+                    <file>lib/FinnhubClient-1.0-SNAPSHOT.jar</file>
                     <generatePom>true</generatePom>
                 </configuration>
                 <executions>
