@@ -8,7 +8,7 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 
 @ControllerAdvice
 public class ExceptionController extends ResponseEntityExceptionHandler {
-    @ExceptionHandler
+    @ExceptionHandler({StockNotFoundException.class})
     public ResponseEntity<ErrorDto> handleNotFound(Exception ex) {
         return new ResponseEntity<>(new ErrorDto(ex.getLocalizedMessage()), HttpStatus.NOT_FOUND);
     }
