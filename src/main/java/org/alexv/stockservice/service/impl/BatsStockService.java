@@ -44,6 +44,7 @@ public class BatsStockService implements StockService {
 
     @Override
     public Stock getStockByTicker(String ticker) {
+        log.info("Getting stock price from Finnhub.");
         var cf = getStockByTickerAsync(ticker);
         var resultList = cf.join();
 
