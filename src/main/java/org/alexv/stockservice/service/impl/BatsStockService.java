@@ -48,6 +48,7 @@ public class BatsStockService implements StockService {
         var resultList = cf.join();
 
         if (resultList.isEmpty()) {
+            log.error("No stock found by ticker: {}", ticker);
             throw new StockNotFoundException(String.format("Stock %S not found.", ticker));
         }
 
@@ -65,13 +66,21 @@ public class BatsStockService implements StockService {
                 .getTickers()
                 .forEach(ticker -> cfList.add(getStockByTickerAsync(ticker)));
 
-        var result = cfList
-                .stream()
-                .map(CompletableFuture::join)
-                .filter(li -> !li.isEmpty())
-                .map(List::getFirst)
-                .map(stockMapper::mapTo)
-                .toList();
+       var result = zip(cfList.stream(), tickers.getTickers()
+               .stream())
+               .map(pair -> {
+                   var symbolList = pair.getLeft().join();
+                   var ticker = pair.getRight();
+
+                    if (symbolList.isEmpty()) {
+                        log.error("No stock found by ticker: {}.", ticker);
+                        throw new StockNotFoundException(String.format("Stock %S not found.", ticker));
+                    }
+                    else
+                        return symbolList.getFirst();
+               })
+               .map(stockMapper::mapTo)
+               .toList();
 
         return new StocksDto(result);
     }
@@ -82,6 +91,7 @@ public class BatsStockService implements StockService {
         var result = cf.join();
 
         if (result.getCurrentPrice() == 0) {
+            log.error("No stock found by ticker: {}", ticker);
             throw new StockNotFoundException(String.format("Stock %S not found.", ticker));
         }
 
@@ -98,7 +108,8 @@ public class BatsStockService implements StockService {
                 .forEach(ticker -> cfList.add(getStockPriceByTickerAsync(ticker)));
 
 
-        var stocksPrices = zip(cfList.stream(), tickers.getTickers().stream())
+        var stocksPrices = zip(cfList.stream(), tickers.getTickers()
+                .stream())
                 .map(pair -> {
                     var quote = pair.getLeft().join();
                     var ticker = pair.getRight();
@@ -108,8 +119,11 @@ public class BatsStockService implements StockService {
                         stockPriceDto.setTicker(ticker);
 
                         return stockPriceDto;
-                    } else
+                    } else {
+                        log.error("No stock found by ticker: {}.", ticker);
                         throw new StockNotFoundException(String.format("Stock %S not found.", ticker));
+                    }
+
                 })
                 .toList();
 
