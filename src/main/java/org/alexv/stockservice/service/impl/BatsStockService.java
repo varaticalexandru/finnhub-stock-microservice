@@ -44,7 +44,7 @@ public class BatsStockService implements StockService {
 
     @Override
     public Stock getStockByTicker(String ticker) {
-        log.info("Getting stock price from Finnhub.");
+        log.info("Getting stock from Finnhub.");
         var cf = getStockByTickerAsync(ticker);
         var resultList = cf.join();
 
@@ -60,7 +60,7 @@ public class BatsStockService implements StockService {
 
     @Override
     public StocksDto getStocksByTickers(TickersDto tickers) {
-
+        log.info("Getting stocks from Finnhub.");
         List<CompletableFuture<List<EnrichedSymbol>>> cfList = new ArrayList<>();
 
         tickers
@@ -88,6 +88,7 @@ public class BatsStockService implements StockService {
 
     @Override
     public StockPriceDto getStockPrice(String ticker) {
+        log.info("Getting stock price from Finnhub.");
         var cf = getStockPriceByTickerAsync(ticker);
         var result = cf.join();
 
@@ -103,6 +104,7 @@ public class BatsStockService implements StockService {
 
     @Override
     public StocksPricesDto getStocksPrices(TickersDto tickers) {
+        log.info("Getting stocks prices from Finnhub.");
         List<CompletableFuture<Quote>> cfList = new ArrayList<>();
 
         tickers.getTickers()
