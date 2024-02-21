@@ -4,6 +4,25 @@ server:
 finnhub:
   stocks:
     exchange: "US"
-
   api:
     key: ${apiKey}
+
+resilience4j:
+  retry:
+    instances:
+      stock-retry:
+        max-attempts: 5
+        wait-duration: 2s
+
+  circuitbreaker:
+    instances:
+      stock-breaker:
+        sliding-window-type: count_based
+        sliding-window-size: 5
+        failure-rate-threshold: 75
+        minimum-number-of-calls: 5
+        wait-duration-in-open-state: 10s
+        max-wait-duration-in-half-open-state: 5s
+        permitted-number-of-calls-in-half-open-state: 2
+        automatic-transition-from-open-to-half-open-enabled: true
+

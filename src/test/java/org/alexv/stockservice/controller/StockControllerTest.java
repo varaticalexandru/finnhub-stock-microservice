@@ -52,7 +52,7 @@ public class StockControllerTest {
     @Test
     void getStockByTicker() throws Exception {
         var result = mockMvc.perform(
-                MockMvcRequestBuilders.get(String.format("/stocks/%s", TICKER))
+                MockMvcRequestBuilders.get(String.format("/api/stocks/%s", TICKER))
         )
                 .andExpect(MockMvcResultMatchers.status().isOk())
                 .andReturn().getResponse()

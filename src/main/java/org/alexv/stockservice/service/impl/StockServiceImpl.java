@@ -1,5 +1,8 @@
 package org.alexv.stockservice.service.impl;
 
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
+import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.alexv.finnhubclient.client.FinnhubClient;
@@ -20,7 +23,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 import static org.alexv.stockservice.utils.Utilities.zip;
@@ -34,23 +36,28 @@ public class StockServiceImpl implements StockService {
     private final Mapper<EnrichedSymbol, Stock> stockMapper;
     private final Mapper<Quote, StockPriceDto> stockPriceMapper;
 
-    @Value("${finnhub.stocks.exchange}")
+    @Value("${finnhub.stocks.exchange:US}")
     private String exchange;
-
     private final static List<String> mics = MIC.getAll();
 
-
     @Async
-    public CompletableFuture<List<EnrichedSymbol>> getStockByTickersAsync(List<String> tickers) {
-        return finnhubApi.searchAllStock(exchange, mics, tickers);
-    }
-
-    @Async
+    @Retry(name = "stock-retry")
+    @CircuitBreaker(name = "stock-breaker")
     public CompletableFuture<List<EnrichedSymbol>> getStockByTickerAsync(String ticker) {
         return finnhubApi.searchAllStock(exchange, ticker);
     }
 
     @Async
+    @Retry(name = "stock-retry")
+    @CircuitBreaker(name = "stock-breaker")
+    public CompletableFuture<List<EnrichedSymbol>> getStockByTickersAsync(List<String> tickers) {
+        return finnhubApi.searchAllStock(exchange, mics, tickers);
+    }
+
+
+    @Async
+    @Retry(name = "stock-retry")
+    @CircuitBreaker(name = "stock-breaker")
     public CompletableFuture<Quote> getStockPriceByTickerAsync(String ticker) {
         return finnhubApi.getQuote(ticker);
     }
@@ -148,5 +155,9 @@ public class StockServiceImpl implements StockService {
         }
 
         return new StocksPricesDto(stocksPrices);
+    }
+
+    public void setExchange(String exchange) {
+        this.exchange = exchange;
     }
 }

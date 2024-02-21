@@ -35,6 +35,8 @@ public class StockServiceTest {
 
     private StockServiceImpl stockService;
 
+    private static final String exchange = "US";
+
     private static final String TICKER = "test_ticker";
     private static final String NAME = "test_name";
     private static final String TYPE = "Etf";
@@ -50,7 +52,7 @@ public class StockServiceTest {
         enrichedSymbol.setType(TYPE);
         list.add(enrichedSymbol);
 
-        when(finnhubClient.searchAllStock(anyString(), anyList(), anyList()))
+        when(finnhubClient.searchAllStock(anyString(), anyString()))
                 .thenReturn(completableFuture);
         when(completableFuture.join())
                 .thenReturn(list);
@@ -60,6 +62,7 @@ public class StockServiceTest {
         Mapper<Quote, StockPriceDto> stockPriceMapper = new StockPriceMapper(modelMapper);
 
         stockService = new StockServiceImpl(finnhubClient, stockMapper, stockPriceMapper);
+        stockService.setExchange(exchange);
     }
 
     @Test
@@ -70,7 +73,7 @@ public class StockServiceTest {
         assertEquals(actualStock.getType(), TYPE);
         assertEquals(actualStock.getCurrency(), CURRENCY);
 
-        verify(finnhubClient, times(1)).searchAllStock(anyString(), anyList(), anyList());
+        verify(finnhubClient, times(1)).searchAllStock(anyString(), anyString());
     }
 
 }
