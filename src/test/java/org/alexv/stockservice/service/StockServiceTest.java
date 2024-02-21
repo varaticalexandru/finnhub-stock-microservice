@@ -9,7 +9,7 @@ import org.alexv.stockservice.mapper.impl.StockMapper;
 import org.alexv.stockservice.mapper.impl.StockPriceMapper;
 import org.alexv.stockservice.model.Currency;
 import org.alexv.stockservice.model.Stock;
-import org.alexv.stockservice.service.impl.BatsStockService;
+import org.alexv.stockservice.service.impl.StockServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,7 +33,7 @@ public class StockServiceTest {
     @Mock
     private CompletableFuture<List<EnrichedSymbol>> completableFuture;
 
-    private BatsStockService stockService;
+    private StockServiceImpl stockService;
 
     private static final String TICKER = "test_ticker";
     private static final String NAME = "test_name";
@@ -50,7 +50,7 @@ public class StockServiceTest {
         enrichedSymbol.setType(TYPE);
         list.add(enrichedSymbol);
 
-        when(finnhubClient.searchStock(anyString(), anyString(), anyString()))
+        when(finnhubClient.searchAllStock(anyString(), anyList(), anyList()))
                 .thenReturn(completableFuture);
         when(completableFuture.join())
                 .thenReturn(list);
@@ -59,7 +59,7 @@ public class StockServiceTest {
         Mapper<EnrichedSymbol, Stock> stockMapper = new StockMapper(modelMapper);
         Mapper<Quote, StockPriceDto> stockPriceMapper = new StockPriceMapper(modelMapper);
 
-        stockService = new BatsStockService(finnhubClient, stockMapper, stockPriceMapper);
+        stockService = new StockServiceImpl(finnhubClient, stockMapper, stockPriceMapper);
     }
 
     @Test
@@ -70,7 +70,7 @@ public class StockServiceTest {
         assertEquals(actualStock.getType(), TYPE);
         assertEquals(actualStock.getCurrency(), CURRENCY);
 
-        verify(finnhubClient, times(1)).searchStock(anyString(), anyString(), anyString());
+        verify(finnhubClient, times(1)).searchAllStock(anyString(), anyList(), anyList());
     }
 
 }
