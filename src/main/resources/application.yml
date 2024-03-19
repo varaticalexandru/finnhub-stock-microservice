@@ -4,8 +4,16 @@ server:
 finnhub:
   stocks:
     exchange: "US"
+  mics: >
+    XNYS,
+    XASE,
+    BATS,
+    OOTC,
+    ARCX,
+    XNAS,
+    IEXG
   api:
-    key: ${apiKey}
+    token: ${FINNHUB_API_TOKEN}
 
 resilience4j:
   retry:
