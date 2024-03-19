@@ -13,13 +13,13 @@ public class FinnhubApiConfig {
 
     private final Environment environment;
 
-    @Value("${finnhub.api.key}")
-    private String apiKey;
+    @Value("${finnhub.api.token}")
+    private String apiToken;
     @Bean
     public FinnhubClient finnhubApi() {
 
 
 
-        return new FinnhubClient(apiKey);
+        return new FinnhubClient(apiToken);
     }
 }
