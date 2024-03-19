@@ -2,7 +2,6 @@ package org.alexv.stockservice.service.impl;
 
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
-import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.alexv.finnhubclient.client.FinnhubClient;
@@ -14,18 +13,16 @@ import org.alexv.stockservice.dto.StocksPricesDto;
 import org.alexv.stockservice.dto.TickersDto;
 import org.alexv.stockservice.exception.StockNotFoundException;
 import org.alexv.stockservice.mapper.Mapper;
-import org.alexv.stockservice.model.MIC;
 import org.alexv.stockservice.model.Stock;
 import org.alexv.stockservice.service.StockService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.alexv.stockservice.utils.Utilities.zip;
 
 @Service
 @RequiredArgsConstructor
@@ -36,24 +33,18 @@ public class StockServiceImpl implements StockService {
     private final Mapper<EnrichedSymbol, Stock> stockMapper;
     private final Mapper<Quote, StockPriceDto> stockPriceMapper;
 
-    @Value("${finnhub.stocks.exchange:US}")
+    @Value("${finnhub.stocks.exchange}")
     private String exchange;
-    private final static List<String> mics = MIC.getAll();
+
+    @Value("${finnhub.mics}")
+    private List<String> mics;
 
     @Async
     @Retry(name = "stock-retry")
     @CircuitBreaker(name = "stock-breaker")
-    public CompletableFuture<List<EnrichedSymbol>> getStockByTickerAsync(String ticker) {
-        return finnhubApi.searchAllStock(exchange, ticker);
+    public CompletableFuture<List<EnrichedSymbol>> getStocksByMicAsync(String mic) {
+        return finnhubApi.searchStock(exchange, mic);
     }
-
-    @Async
-    @Retry(name = "stock-retry")
-    @CircuitBreaker(name = "stock-breaker")
-    public CompletableFuture<List<EnrichedSymbol>> getStockByTickersAsync(List<String> tickers) {
-        return finnhubApi.searchAllStock(exchange, mics, tickers);
-    }
-
 
     @Async
     @Retry(name = "stock-retry")
@@ -67,40 +58,53 @@ public class StockServiceImpl implements StockService {
     public Stock getStockByTicker(String ticker) {
         log.info("Getting stock from Finnhub: {}.", ticker);
 
-        var cf = getStockByTickerAsync(ticker);
+        List<CompletableFuture<List<EnrichedSymbol>>> completableFutures = new ArrayList<>();
 
-        var result = cf.join();
+        mics.forEach(mic -> completableFutures.add(getStocksByMicAsync(mic)));
 
-        if (result.isEmpty()) {
-            log.error("No stock found by ticker: {}", ticker);
-            throw new StockNotFoundException(String.format("Stock %S not found.", ticker));
-        }
+        Optional<EnrichedSymbol> stock = completableFutures.stream()
+                .map(CompletableFuture::join)
+                .flatMap(Collection::stream)
+                .filter(enrichedSymbol -> enrichedSymbol.getSymbol().equals(ticker))
+                .findFirst()
+                .or(() -> {
+                    log.error("No stock found by ticker: {}", ticker);
+                    throw new StockNotFoundException(String.format("Stock %S not found.", ticker));
+                });
 
-        var item = result.getFirst();
-
-        return stockMapper.mapTo(item);
+        return stockMapper.mapTo(stock.get());
     }
 
 
     @Override
     public StocksDto getStocksByTickers(TickersDto tickers) {
-        log.info("Getting stocks from Finnhub: {}.", tickers.getTickers());
-        List<String> tickerList = tickers.getTickers();
 
-        var cf = getStockByTickersAsync(tickers.getTickers());
-        var result = cf.join();
+        List<String> tickersList = tickers.getTickers();
+        log.info("Getting stocks from Finnhub: {}.", tickersList);
 
-        if (result.isEmpty()) {
-            log.error("No stock found by tickers: {}", tickers);
-            throw new StockNotFoundException(String.format("Stocks not found: %S.", tickers.getTickers()));
-        }
+        List<CompletableFuture<List<EnrichedSymbol>>> completableFutures = new ArrayList<>();
 
-        var stocks = result.stream()
-                .map(stockMapper::mapTo)
+        mics.forEach(mic -> completableFutures.add(getStocksByMicAsync(mic)));
+
+        List<EnrichedSymbol> stocks = completableFutures.stream()
+                .map(CompletableFuture::join)
+                .flatMap(Collection::stream)
+                .filter(enrichedSymbol -> tickersList.contains(enrichedSymbol.getSymbol()))
                 .toList();
 
+        List<String> stocksTickers = stocks
+                .stream()
+                .map(EnrichedSymbol::getSymbol)
+                .toList();
 
-        return new StocksDto(stocks);
+        tickersList.removeAll(stocksTickers);
+
+        if (!tickersList.isEmpty()) {
+            log.error("No stocks found by tickers: {}", tickersList);
+            throw new StockNotFoundException(String.format("Stocks not found: %S.", tickersList));
+        }
+
+        return new StocksDto(stockMapper.mapTo(stocks));
     }
 
     @Override
@@ -121,43 +125,39 @@ public class StockServiceImpl implements StockService {
 
     @Override
     public StocksPricesDto getStocksPrices(TickersDto tickers) {
-        log.info("Getting stocks prices from Finnhub: {}.", tickers.getTickers());
+
+        List<String> tickersList = tickers.getTickers();
+        log.info("Getting stocks prices from Finnhub: {}.", tickersList);
         List<CompletableFuture<Quote>> cfList = new ArrayList<>();
 
-        tickers.getTickers()
-                .forEach(ticker -> cfList.add(getStockPriceByTickerAsync(ticker)));
+        tickersList.forEach(ticker -> cfList.add(getStockPriceByTickerAsync(ticker)));
 
+        List<String> nonExistentTickers = new ArrayList<>();
+        AtomicInteger tickerIdx = new AtomicInteger();
 
-        var stocksPrices = zip(cfList.stream(), tickers.getTickers()
-                .stream())
-                .map(pair -> {
-                    var quote = pair.getLeft().join();
-                    var ticker = pair.getRight();
-
-                    if (quote.getCurrentPrice() != 0) {
-                        StockPriceDto stockPriceDto = stockPriceMapper.mapTo(quote);
-                        stockPriceDto.setTicker(ticker);
-
-                        return stockPriceDto;
-                    } else {
-                        /*log.error("No stock found by ticker: {}.", ticker);
-                        throw new StockNotFoundException(String.format("Stock not found: %S.", ticker));*/
-                        return StockPriceDto.builder().currentPrice(0d).build();
+        List<StockPriceDto> stocksPrices = cfList
+                .stream()
+                .map(CompletableFuture::join)
+                .map(quote -> {
+                    if (quote.getCurrentPrice() == 0) {
+                        nonExistentTickers.add(tickersList.get(tickerIdx.get()));
                     }
 
+                    StockPriceDto stockPrice = stockPriceMapper.mapTo(quote);
+                    stockPrice.setTicker(tickersList.get(tickerIdx.get()));
+                    tickerIdx.incrementAndGet();
+                    return stockPrice;
                 })
                 .filter(stockPriceDto -> stockPriceDto.getCurrentPrice() != 0)
                 .toList();
 
-        if (stocksPrices.isEmpty()) {
-            log.error("No stock found by tickers: {}", tickers.getTickers());
-            throw new StockNotFoundException(String.format("Stocks not found: %S.", tickers.getTickers()));
+
+        if (!nonExistentTickers.isEmpty()) {
+            log.error("No stock found by tickers: {}", nonExistentTickers);
+            throw new StockNotFoundException(String.format("Stocks not found: %S.", nonExistentTickers));
         }
 
         return new StocksPricesDto(stocksPrices);
     }
 
-    public void setExchange(String exchange) {
-        this.exchange = exchange;
-    }
 }
